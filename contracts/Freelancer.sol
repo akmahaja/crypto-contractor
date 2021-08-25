@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.7.0 <0.9.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.4;
 
 contract Freelancer {
     /* 
@@ -45,8 +45,6 @@ contract Freelancer {
     mapping(address => uint256) public clientToContractId;
 
     event workFunded(Work work);
-    event Resolution(Work work);
-    event TriggerVote(string party, Work work);
     event transferFunds();
 
     constructor() {
@@ -130,10 +128,6 @@ contract Freelancer {
         } else if (agreement.client.vote == Vote.declined && agreement.freelancer.vote == Vote.declined) {
             agreement.client.addr.transfer(agreement.value);
             emit transferFunds();
-        } else if (agreement.freelancer.vote == Vote.undecided) {
-            emit TriggerVote("Freelancer", agreement);
-        } else {
-            emit Resolution(agreement);
         }
     }
 
@@ -154,10 +148,6 @@ contract Freelancer {
         } else if (agreement.freelancer.vote == Vote.declined) {
             agreement.client.addr.transfer(agreement.value);
             emit transferFunds();
-        } else if (agreement.client.vote == Vote.undecided) {
-            emit TriggerVote("Client", agreement);
-        } else {
-            emit Resolution(agreement);
         }
     }
 
