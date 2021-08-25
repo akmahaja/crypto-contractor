@@ -16,6 +16,8 @@ contract Freelancer {
 
     enum Vote { approved, declined, undecided }
 
+    enum ConsensusType { unanimous_vote, third_party }
+
     struct Entity {
         // "payable" vs. "non-payable" addresses are defined at in Solidity at compile time.
         // You can use .transfer(...) and .send(...) on address payable, but not address.
@@ -32,7 +34,8 @@ contract Freelancer {
         uint256 value;
         // status of the work
         Status status;
-
+        ConsensusType consensusType;
+        Entity thirdParty;
     }
 
     uint256 private totalContracts;
@@ -58,8 +61,18 @@ contract Freelancer {
         _;
     }
 
+    modifier onlyThirdParty(uint256 _id) {
+        require(msg.sender == contracts[_id].thirdParty.addr);
+        _;
+    }
+
     modifier checkWorkStatus(uint256 _id, Status _status) {
         require(contracts[_id].status == _status);
+        _;
+    }
+
+    modifier checkConsensusType(uint256 _id, ConsensusType _consensusType) {
+        require(contracts[_id].consensusType == _consensusType);
         _;
     }
 
@@ -75,8 +88,8 @@ contract Freelancer {
         sufficientFunds(_value, msg.value)
     {
         Entity memory entityFreelancer = Entity(_freelancer, Vote.undecided);
-        Entity memory entityClient = Entity(payable(msg.sender), Vote.undecided);
-        contracts[totalContracts] = Work(entityFreelancer, entityClient, _description, _value, Status.funded);
+        Entity memory entityClient = Entity(payable(msg.sender), Vote.undecided); 
+        contracts[totalContracts] = Work(entityFreelancer, entityClient, _description, _value, Status.funded, ConsensusType.unanimous_vote, Entity(payable(0), Vote.undecided));
         freelanderToContractId[_freelancer] = totalContracts;
         clientToContractId[msg.sender] = totalContracts;
 
@@ -84,10 +97,27 @@ contract Freelancer {
         totalContracts++;
     }
 
-    function clientApproveWork(uint256 _id, Vote vote) 
+    function fundWork(string memory _description, uint256 _value, address payable _freelancer, address payable _thirdParty) 
+        public
+        payable
+        sufficientFunds(_value, msg.value)
+    {
+        require(_thirdParty != _freelancer && _thirdParty != msg.sender, "The client or freelancer cannot be the third party");
+        Entity memory entityFreelancer = Entity(_freelancer, Vote.undecided);
+        Entity memory entityClient = Entity(payable(msg.sender), Vote.undecided); 
+        contracts[totalContracts] = Work(entityFreelancer, entityClient, _description, _value, Status.funded, ConsensusType.third_party, Entity(payable(_thirdParty), Vote.undecided));
+        freelanderToContractId[_freelancer] = totalContracts;
+        clientToContractId[msg.sender] = totalContracts;
+
+        emit workFunded(contracts[totalContracts]);
+        totalContracts++;
+    }
+
+    function clientVote(uint256 _id, Vote vote) 
         public
         onlyClient(_id)
         checkWorkStatus(_id, Status.funded)
+        checkConsensusType(_id, ConsensusType.unanimous_vote)
     {
         Work memory agreement = contracts[_id];
         agreement.client.vote = vote;
@@ -101,10 +131,11 @@ contract Freelancer {
         }
     }
 
-    function freelancerApproveWork(uint256 _id, Vote vote) 
+    function freelancerVote(uint256 _id, Vote vote) 
         public
         onlyFreelancer(_id)
         checkWorkStatus(_id, Status.funded)
+        checkConsensusType(_id, ConsensusType.unanimous_vote)
     {
         Work memory agreement = contracts[_id];
         agreement.client.vote = vote;
@@ -115,6 +146,23 @@ contract Freelancer {
             emit transferFunds();
 
         } else if (agreement.freelancer.vote == Vote.declined) {
+            agreement.client.addr.transfer(agreement.value);
+            emit transferFunds();
+        }
+    }
+
+    function thirdPartyVote(uint256 _id, Vote vote) 
+        public
+        onlyThirdParty(_id)
+        checkWorkStatus(_id, Status.funded)
+        checkConsensusType(_id, ConsensusType.third_party)
+    {
+        Work memory agreement = contracts[_id];
+        if (vote == Vote.approved) {
+            agreement.freelancer.addr.transfer(agreement.value);
+            emit transferFunds();
+
+        } else if (vote == Vote.declined) {
             agreement.client.addr.transfer(agreement.value);
             emit transferFunds();
         }
