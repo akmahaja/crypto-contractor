@@ -97,6 +97,7 @@ contract Freelancer {
         payable
         sufficientFunds(_value, msg.value)
     {
+        require(_thirdParty != _freelancer && _thirdParty != msg.sender, "The client or freelancer cannot be the third party");
         Entity memory entityFreelancer = Entity(_freelancer, Vote.undecided);
         Entity memory entityClient = Entity(payable(msg.sender), Vote.undecided); 
         contracts[totalContracts] = Work(entityFreelancer, entityClient, _description, _value, Status.funded, ConsensusType.third_party, Entity(payable(_thirdParty), Vote.undecided));
