@@ -61,6 +61,11 @@ contract Freelancer {
         _;
     }
 
+    modifier onlyThirdParty(uint256 _id) {
+        require(msg.sender == contracts[_id].thirdParty.addr);
+        _;
+    }
+
     modifier checkWorkStatus(uint256 _id, Status _status) {
         require(contracts[_id].status == _status);
         _;
@@ -148,7 +153,7 @@ contract Freelancer {
 
     function thirdPartyVote(uint256 _id, Vote vote) 
         public
-        onlyFreelancer(_id)
+        onlyThirdParty(_id)
         checkWorkStatus(_id, Status.funded)
         checkConsensusType(_id, ConsensusType.third_party)
     {
