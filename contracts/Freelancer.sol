@@ -37,9 +37,9 @@ contract Freelancer {
 
     uint256 private totalContracts;
 
-    mapping(uint256 => Work) public Contracts;
-    // TODO: include mapping for client to list of work ids
-    // TODO: include mapping for freelancer to list of work ids
+    mapping(uint256 => Work) public contracts;
+    mapping(address => uint256) public freelanderToContractId;
+    mapping(address => uint256) public clientToContractId;
 
     event workFunded(Work work);
     event transferFunds();
@@ -49,17 +49,17 @@ contract Freelancer {
     }
 
     modifier onlyFreelancer(uint256 _id) {
-        require(msg.sender == Contracts[_id].freelancer.addr);
+        require(msg.sender == contracts[_id].freelancer.addr);
         _;
     }
 
     modifier onlyClient(uint256 _id) {
-        require(msg.sender == Contracts[_id].client.addr);
+        require(msg.sender == contracts[_id].client.addr);
         _;
     }
 
     modifier checkWorkStatus(uint256 _id, Status _status) {
-        require(Contracts[_id].status == _status);
+        require(contracts[_id].status == _status);
         _;
     }
 
@@ -76,9 +76,11 @@ contract Freelancer {
     {
         Entity memory entityFreelancer = Entity(_freelancer, Vote.undecided);
         Entity memory entityClient = Entity(payable(msg.sender), Vote.undecided);
-        Contracts[totalContracts] = Work(entityFreelancer, entityClient, _description, _value, Status.funded);
+        contracts[totalContracts] = Work(entityFreelancer, entityClient, _description, _value, Status.funded);
+        freelanderToContractId[_freelancer] = totalContracts;
+        clientToContractId[msg.sender] = totalContracts;
 
-        emit workFunded(Contracts[totalContracts]);
+        emit workFunded(contracts[totalContracts]);
         totalContracts++;
     }
 
@@ -87,7 +89,7 @@ contract Freelancer {
         onlyClient(_id)
         checkWorkStatus(_id, Status.funded)
     {
-        Work memory agreement = Contracts[_id];
+        Work memory agreement = contracts[_id];
         agreement.client.vote = vote;
 
         if (agreement.client.vote == Vote.approved) {
@@ -104,7 +106,7 @@ contract Freelancer {
         onlyFreelancer(_id)
         checkWorkStatus(_id, Status.funded)
     {
-        Work memory agreement = Contracts[_id];
+        Work memory agreement = contracts[_id];
         agreement.client.vote = vote;
         agreement.freelancer.vote = vote;
 
